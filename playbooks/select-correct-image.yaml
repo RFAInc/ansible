@@ -1,0 +1,74 @@
+#Author: Andy Escolastico <aescolastico@rfa.com> <https://github.com/aescolastico>
+---
+- name: image validation
+  hosts: all
+  gather_facts: no
+  vars:    
+    ansible_user: admin  
+    ansible_ssh_pass: Cisco123  
+    ansible_connection: ansible.netcommon.network_cli
+    # move to dynamic inventory
+    ansible_network_os: cisco.nxos.nxos
+    ansible_become: yes
+    ansible_become_method: enable
+    local_dir: ../images/latest
+  tasks:
+    - name: find nx-os image
+      block:
+      # move to dynamic inventory
+      - name: gather facts
+        nxos_facts:
+      - name: search for image file (local dir)
+        find:
+          paths: "{{ local_dir }}"
+          patterns: "*{{ansible_net_model.split()[0] | lower}}*"
+          recurse: "yes"
+          file_type: "file"
+        register: local_images
+      - set_fact:
+          file_path: "{{ local_images.files.0.path }}"
+      - set_fact:
+          file_name: "{{ file_path.split('/')[-1] }}"
+      - set_fact:
+          file_model: "{{ file_name.split('_')[0] }}"
+      - set_fact:
+          file_version: "{{ file_name.split('_')[1] | replace('.bin','') }}"
+      - set_fact:
+          device_version: "{{ ansible_net_version | replace('(','.') | replace(')','') }}"
+      - debug:
+          msg: 
+            - "file path: {{ file_path }}"
+            - "file name: {{ file_name }}"
+            - "file model: {{ file_model }}"
+            - "file version: {{ file_version }}"
+            - "device version: {{ device_version }}"
+      - name: compare versions
+        assert:
+          that:
+            - "file_version != device_version"
+          success_msg: "Upgrade Required"
+          fail_msg: "Upgrade not required"
+      - name: search for image file (remote dir)
+        nxos_command:
+          commands: dir | grep bin
+        register: remote_images 
+      - name: store running config
+        nxos_command:
+          commands: show run
+        register: run
+      - name: transfer image file 
+        block:
+        - name: ensure SCP dependancy is satisfied
+          nxos_command:
+            commands: 
+              - conf t
+              - feature scp-server
+              - exit
+          when: "'feature scp-server' not in run.stdout[0]"
+        - name: perform transfer
+          ansible.netcommon.net_put:
+            src: "{{ playbook_dir }}/../{{ file_path }}"
+            protocol: scp
+            dest: "{{ file_name }}"
+          when: "file_name not in remote_images.stdout[0]"
+      when: ansible_network_os == 'cisco.nxos.nxos'
