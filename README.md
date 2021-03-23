@@ -17,11 +17,13 @@
         password = "PASSWORDHERE"
         server = "ORIONHOSTIPHERE"
         ```
+        
 **Running the Inventory in Python**
 1. call the python python executable with the absolute or relative path of the .py file
         ```
         python /path/to/orion-inventory.py --list
         ```
+        
 **Running the Inventory in Ansible**
 1. set execute permissions on the .py file using the command 
         ```
