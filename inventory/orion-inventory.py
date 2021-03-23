@@ -122,7 +122,7 @@ class OrionInventory(object):
                 platform = "unknown"
             # add host + hostvars to group '_meta'
             inv['_meta']['hostvars'][ip] = {
-                'platform': platform
+                'ansible_network_os': platform
             }
             # add host to group 'ungrouped' if 'customer name' field is empty
             if customer is None:
